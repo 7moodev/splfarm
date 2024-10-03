@@ -1,8 +1,13 @@
-from constants import Token
+
 import os
 import requests
 import pandas as pd
+import json
+from blessings import Terminal
+
+t = Terminal()
 url = os.environ.get("solrpc")
+
 
 def get_balance(wallet_address, token_address=None):
     headers = {
@@ -82,7 +87,8 @@ def get_token_decimals(mint_address):
         raise ConnectionError(f"Failed to connect to Solana API. Status code: {response.status_code}")
 
 
-def get_quote(input, output, amount, slippage = 0.5, exactIn=True, dexes=[], onlyDirectRoutes=False):
+def get_quote(input, output, amount, slippage = 0.5, exactIn=True, include_dexes=[], onlyDirectRoutes=False):
+    USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
     def _get_quote_simple(input:str, output:str, amount):
         amount = int(amount * (10**get_token_decimals(input)))
@@ -103,8 +109,8 @@ def get_quote(input, output, amount, slippage = 0.5, exactIn=True, dexes=[], onl
             raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
 
     slippage = int(slippage * 100)
-    in_amount_usd = (amount if input == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" else _get_quote_simple(
-        input, Token.USDC.value, amount)
+    in_amount_usd = (amount if input == USDC else _get_quote_simple(
+        input,USDC, amount)
     )
     amount = int(amount * (10**get_token_decimals(input)))
     exactIn = "ExactIn" if exactIn else"ExactOut"
@@ -116,23 +122,34 @@ def get_quote(input, output, amount, slippage = 0.5, exactIn=True, dexes=[], onl
     }
     response = requests.get(url, headers=headers, data=payload)
     if response.status_code == 200:
-            data = response.json()
+            qoute = response.json()
             # Extracting key values
-            out_amount = int(data["outAmount"])/10**get_token_decimals(output)
-            out_amount_usd = out_amount if output == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" else _get_quote_simple (output, Token.USDC.value, int(out_amount))
+            out_amount = int(qoute["outAmount"])/10**get_token_decimals(output)
+            out_amount_usd = out_amount if output == USDC else _get_quote_simple (output, USDC, int(out_amount))
             delta_in_out_usd = in_amount_usd - out_amount
-            print(data["routePlan"])
-            price_impact = data["priceImpactPct"]
+            price_impact = qoute["priceImpactPct"]
+            #print(qoute["routePlan"])
             # print(f"Input Amount: {amount} tokens")
             # print(f"Output Amount: {out_amount} tokens")
             # print(f"Price Impact: {price_impact}%")
             # print(f"In Amount in $: {in_amount_usd}")
             # print(f"Out Amount in $: {out_amount_usd}")
             # print(f"Cooked by slippage $: {delta_in_out_usd}")
-            return out_amount, price_impact, in_amount_usd, out_amount_usd, delta_in_out_usd
+            return qoute, out_amount, price_impact, slippage, in_amount_usd, out_amount_usd, delta_in_out_usd
     else:
         raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
         
 if __name__ == "__main__":
-    #print(get_quote(Token.USDC.value,Token.KIN.value, 3000))
+    with open('constants.json', 'r') as file:
+        config_data = json.load(file)
+
+        tokens = config_data['tokens']
+        dexes = config_data['dexes']     
+        # print(t.red('This is red'))
+        # print(t.blue('This is bold'))
+        
+    #print(get_quote(tokens["KIN"],tokens["USDC"], 3000))
     print("")
+   
+
+
