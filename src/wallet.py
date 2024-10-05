@@ -10,14 +10,15 @@ import base58
 import pandas as pd
 import numpy as np
 import json
-import utils
+import utils #where most functions are implemented
 
 class Wallet:
     url = os.environ.get("solrpc")
     jup_url = "https://quote-api.jup.ag/v6"
     shared_transaction_log = pd.DataFrame(columns=['wallet', 'type', 'from', 'to', 'amount', 'slippage', 'date', 'hash'])
     shared_vol = 0
-    def __init__(self, which_wallet: int=0):        
+    def __init__(self, which_wallet: int=0):    
+        self.which_wallet = which_wallet    
         self.volume_sol = 0
         self.volume_usd = 0
         self.client = AsyncClient(Wallet.url)
@@ -27,7 +28,6 @@ class Wallet:
         self.keypair = Keypair.from_bytes(base58.b58decode(self.private_key))
         self.address = self.keypair.pubkey()
         self.volume = 0
-
     def get_balance(self, token_address=None):
         if token_address is None:
             return utils.get_solana_balance(str(self.address))
@@ -38,4 +38,10 @@ class Wallet:
                              onlyDirectRoutes=False):
         qoute, out_amount, price_impact, slippage, in_amount_usd, out_amount_usd, delta_in_out_usd =utils.get_quote(input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
         return qoute, out_amount, price_impact, slice, in_amount_usd, out_amount_usd, delta_in_out_usd
+    def swap_on_jupiter(self, input: str, output: str, amount: int, slippage=0.5, 
+                             exactIn=True, include_dexes=[],
+                             onlyDirectRoutes=False):
+        link = utils.swap(self.keypair, input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
+        
+        
     
