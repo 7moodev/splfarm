@@ -56,7 +56,6 @@ def get_balance(wallet_address, token_address=None):
         response = requests.post(solana_url, json=payload, headers=headers)
         if response.status_code == 200:
             accounts_data = response.json()
-            print("account data", accounts_data)
             if "result" in accounts_data and "value" in accounts_data["result"]:
                 token_balance = 0
                 for account in accounts_data["result"]["value"]:
@@ -96,7 +95,7 @@ def find_ticker(address):
     """
     A local reverse function to return a ticker by passing it's Token address
     """
-    with open('constants.json', 'r') as file:
+    with open('../constants.json', 'r') as file:
         config_data = (json.load(file)["tokens"])
     for ticker, token_address in config_data.items():
         if token_address == address:
@@ -175,7 +174,7 @@ def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
         headers = {
         'Accept': 'application/json'
         }
-    # print(f"fetching for: {input}, and for {output}, and for {amount}")
+
         response = requests.get(url, headers=headers, data=payload)
         if response.status_code == 200:
                 # Parse the JSON directly from the response object
@@ -202,7 +201,6 @@ def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
     if response.status_code == 200:
             qoute = response.json()
             out_amount = int(qoute["outAmount"])/10**get_token_decimals(output)
-        
             out_amount_usd = out_amount if output == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" else _get_quote_simple (output, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", (out_amount))
             delta_in_out_usd = in_amount_usd - out_amount
             price_impact = qoute["priceImpactPct"]
@@ -255,7 +253,7 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
     url = "https://quote-api.jup.ag/v6/swap"
     client = Client(solana_url)
     pubkey = str(keypair.pubkey())
-    qoute, out_amount, *_ = get_quote(input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
+    qoute, out_amount, _, _, in_amount_usd, out_amount_usd, *_ = get_quote(input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
     payload = {              
                                     "userPublicKey": pubkey,
                                     "quoteResponse": qoute,
@@ -279,8 +277,6 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
             feesUSDC = feeAmount
             feesSOL = _get_quote_simple(feeMint, "So11111111111111111111111111111111111111112", feeAmount)
         elif feeMint == "So11111111111111111111111111111111111111112":
-            print(feeAmount)
-            print(feeMint)
             feeUSDC = _get_quote_simple(feeMint, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", feeAmount)
             feesSOL = feeAmount
         else:
@@ -312,8 +308,9 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
         print(t.green(f"{t.bold(str(amount))} {t.bold(find_ticker(input))} for {t.green(t.bold(str(format(float(out_amount), '.12f'))))} {t.bold(find_ticker(output))}"), end = "")
         print(t.magenta((f" and paid ${str(feeUSDC)} in fees")))
         print(t.blue(f"Explorer: {link}"))
-        log_tx(pubkey, find_ticker(input), find_ticker(output), amount, out_amount, feeUSDC, feesSOL, slippage, link)
-        return link
+        print(t.bold(t.white("==============================================")))
+        log_tx(pubkey, find_ticker(input), find_ticker(output), amount, out_amount, feeUSDC, feesSOL, slippage, in_amount_usd, link)
+        return link, in_amount_usd, out_amount_usd
     else:
         log_fl(response.json())
         print(t.bold(t.red("Transaction Failed")))
@@ -324,6 +321,7 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
             print(t.bold(t.red("Max tries reached. Transaction failed")))
             return
 # def swap_on_raydium(keypair:Keypair ,input: str, output: str, amount: int, slippage_bps: int):
+
 
 #         private_key = keypair
 
@@ -348,8 +346,14 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
 #         response.raise_for_status()
 #         transaction_data = response.json()['data']
 
-    
-
+# if __name__ == "__main__":
+#     with open('../constants.json', 'r') as file:
+#         tokens = (json.load(file)["tokens"])
+#     private_key = os.environ.get(f"spl{0}")
+#     if not private_key:
+#             raise Exception(f"Environment variable spl{0} not set.")
+#     keypair = Keypair.from_bytes(base58.b58decode(private_key))
+#     swap(keypair, tokens["SOL"], tokens["USDC"], 0.03)
 
 
 
