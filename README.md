@@ -1,5 +1,5 @@
 
-# Solana Farm
+![logo](kitten.png)
 
 **A simple python code to farm Dexes like Jupiter and Raydium for potential airdrops (the former is more likely to be of relevance)**
 
@@ -7,7 +7,7 @@
 ## Brief Overview:
 
 **wallet**: the wallet class represent a wallet on Solana. It contains attributes that are used for signing transactions like the public key and keypair. Some logging attributes are also there, like trade count and volume \
-**utils**: Where most of the heavy work is done. Most used functions are implemented there to reduce code size in other files like wallet.py and main.py \
+**utils**: Where most of the heavy work is done. Most used functions are implemented there to reduce code size in other files like wallet.py and main.py 
 **main**: here is where the logic of swapping and farming is. There are some pre-implemented routes of farming swaps, however you can use your own for more diversification and sybil avoidance 
 
 
