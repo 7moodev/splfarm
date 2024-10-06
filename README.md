@@ -7,7 +7,7 @@
 ## Brief Overview:
 
 **wallet**: the wallet class represent a wallet on Solana. It contains attributes that are used for signing transactions like the public key and keypair. Some logging attributes are also there, like trade count and volume \
-**utils**: Where most of the heavy work is done. Most used functions are implemented there to reduce code size in other files like wallet.py and main.py \
+**utils**: Where most of the heavy work is done. Most used functions are implemented there to reduce code size in other files like `wallet.py` and `main.py` \
 **main**: here is where the logic of swapping and farming is. There are some pre-implemented routes of farming swaps, however you can use your own for more diversification and sybil avoidance 
 
 
@@ -58,6 +58,6 @@ python3 src/main.py
 
 
 ## Logging
-In `log.py`, processed and failed transactions, fetched qoutes, volume, and swapping rounds are logged to the 'log' folder and are saved in both **json** and **csv**.
+In `log.py`, processed and failed transactions, fetched qoutes, volume, and swapping rounds are logged to the `log` folder and are saved in both **json** and **csv**.
 
 
