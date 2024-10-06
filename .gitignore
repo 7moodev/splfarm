@@ -1,5 +1,4 @@
 .env
-log/
 src/.DS_Store
 src/.env
 src/.env.local
