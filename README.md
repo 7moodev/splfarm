@@ -41,14 +41,14 @@ run:
 python3 -m ensurepip --upgrade
 ```
 
-and after cloning and having `splfarm` as cwd, run:
+and after cloning and having `splfarm/src` as cwd, run:
 ```bash
 pip install -r requirements.txt
 ```
 Head to `main.py`, instantiate desired Wallet objects and adjust desired metrics like logic, size, and trade frequency.
 Then run:
 ```bash
-python3 src/main.py
+python3 main.py
 ```
 
 
