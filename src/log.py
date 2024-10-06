@@ -2,6 +2,9 @@ import json
 import csv
 from datetime import datetime, timezone
 import os
+def ensure_log_folder_exists():
+    log_dir = os.path.dirname('../log/')
+    os.makedirs(log_dir, exist_ok=True)
 def log_tx(wallet: str, input_token: str,
                         output_token: str, in_amount: int,
                         out_amount: int, feeUSD: float,
@@ -10,6 +13,7 @@ def log_tx(wallet: str, input_token: str,
                         valueUSD: int, 
                         explorer: str, 
                         json_file='../log/txs.json', csv_file='../log/txs.csv'):
+    ensure_log_folder_exists()
     # Prepare the transaction data
     timestamp = datetime.now(timezone.utc).isoformat()
     transaction = {
@@ -53,6 +57,7 @@ def log_tx(wallet: str, input_token: str,
 
 
 def log_qt(jupiter_quote: str, json_file='../log/qoutes.json'):
+    ensure_log_folder_exists()
     # Get the current timestamp
     timestamp = datetime.now(timezone.utc).isoformat()
     # Create a dictionary with the timestamp and the raw JSON string
@@ -74,6 +79,7 @@ def log_qt(jupiter_quote: str, json_file='../log/qoutes.json'):
         json.dump(transactions, f, indent=4)
 
 def log_qt(jupiter_quote: str, json_file='../log/qoutes.json'):
+    ensure_log_folder_exists()
     # Get the current timestamp
     timestamp = datetime.now(timezone.utc).isoformat()
     # Create a dictionary with the timestamp and the raw JSON string
@@ -97,6 +103,7 @@ def log_qt(jupiter_quote: str, json_file='../log/qoutes.json'):
 
 
 def log_fl(failed: str, json_file='../log/failed.json'):
+    ensure_log_folder_exists()
     # Get the current timestamp
     timestamp = datetime.now(timezone.utc).isoformat()
     # Create a dictionary with the timestamp and the raw JSON string
@@ -117,6 +124,7 @@ def log_fl(failed: str, json_file='../log/failed.json'):
     with open(json_file, 'w') as f:
         json.dump(transactions, f, indent=4)
 def log_vol(wallet: str, volume: float, csv_file='volume.csv'):
+    ensure_log_folder_exists()
     """
     Logs the provided volume for a given wallet into a CSV file.
     Parameters:
