@@ -12,8 +12,27 @@ with open('../constants.json', 'r') as file:
         tokens = (list((json.load(file)["tokens"]).keys()))
         tokens.remove("SOL")
         
+rounds = 10 # rounds of swapping all tickers among all wallets once
+time_between_rounds = 20*60 # est time to wait between each round, in seconds
+time_between_swaps = 60 # est time to wait between each swap, in seconds
+time_between_wallets = 60 # est time to wait between each wallet, in seconds
 def main():
-    rounds = 10 # each rounds denotes 1 round of swapping all tickers among all wallets once
+    """
+    A naive farming bot that does random swaps on wallets on verified tickers. It is not inteded to be profitable.
+
+    Implemnted logic consists of wallets, that are created and then passed for swapping in a specified number of rounds.
+    In each round, the script iterates through all wallets, perform swaps for all pairs imported from constants.json. Although in this case,
+    it would mean that each wallet swaps all tokens before the next wallet starts swapping. Hence there are some cases added 
+    that break out of the tokens iteration and move to the next wallet, while also monitoring current wallet's balance and 
+    breaking out when it goes below 0.2 SOL.
+    
+    Amount for each swap from SOL to token X is randomly selected between 25% and 66% of the token balance.
+    Amount for each swap from token X to SOL is randomly selected between 50% and 100% of the token balance.
+    
+    Time between rounds/swaps/wallets is randomly selected between 0 and that value, to prevent it from being a pattern"""
+    global rounds
+    global time_between_rounds
+
     print(t.bold(t.blue("======================================== Engine Started ========================================")))
     wallet0 = Wallet(0)
     wallet1 = Wallet(1)
@@ -21,7 +40,12 @@ def main():
     wallet3 = Wallet(3)
     wallet4 = Wallet(4)
     wallet5 = Wallet(5)
-    wallets = [wallet0, wallet1, wallet2, wallet3, wallet4, wallet5]
+    wallet6 = Wallet(6)
+    wallet7 = Wallet(7)
+    wallet8 = Wallet(8)
+    wallet9 = Wallet(9)
+    wallet10 = Wallet(10)
+    wallets = [wallet0, wallet1, wallet2, wallet3, wallet4, wallet5, wallet6, wallet7, wallet8, wallet9, wallet10]
     total_vol = 5
     while True:
         if rounds == 0:
@@ -39,8 +63,9 @@ def main():
         print(t.bold(t.green(f"Total volume traded among all wallets: {total_vol}")))
         print(t.bold(t.green(f"Post Balances among all wallets: {get_all_balances(wallets)}")))
         print(t.bold(t.red("================== Swapping Ended ==================")))
-        time.sleep(60*20)
+        time.sleep(random.randint(0,time_between_rounds))
 def slow_alternating_swaps(wallets):
+        
         """
         This function will keep swapping on a random wallet at a random time using random tickers and random amounts ranging from
         10% of the wallet balance to 25% of the wallet balance for each swap and up to 90% of wallet utilization for each wallet each round.
@@ -49,6 +74,8 @@ def slow_alternating_swaps(wallets):
         Outputs:
             None
         """
+        global time_between_swaps
+        global time_between_wallets
         random.shuffle(wallets) # for extra randomness
         random_min = random.randint(0, 59)
         for wallet in wallets:
@@ -79,13 +106,13 @@ def slow_alternating_swaps(wallets):
                                 except Exception as e:
                                     print(t.red("Swap Failed"))
                                     continue
-                            time.sleep(random.randint(0,60))
+                            time.sleep(random.randint(0, time_between_swaps))
                         break
                 else:
                     if datetime.now().minute != random_min:
                         random_min = random.randint(0,59)
                         for token in tokens:
-                                if random_min %10 == random.randint(0,9):
+                                if random_min %10 == random.randint(0,9) or wallet.get_balance()<0.2:
                                     print(t.bold(t.white("Changing Wallets")))
                                     break # this will ensure that not all tokens have to be processed before the next wallet is processed
                                 if wallet.get_balance()< 0.2:
@@ -95,13 +122,13 @@ def slow_alternating_swaps(wallets):
                                     print(t.bold(t.yellow(token)), end="")
                                     print(t.yellow(f" on wallet "), end="")
                                     print(t.bold(t.yellow(f"{wallet.which_wallet}")))
-                                    wallet.swap_on_jupiter("SOL", token, random.uniform(wallet.get_balance()/3, wallet.get_balance()))
+                                    wallet.swap_on_jupiter("SOL", token, random.uniform(wallet.get_balance()/4, wallet.get_balance()/1.5))
                                 except Exception as e:
                                     print(t.red("Swap Failed"))
                                     continue
                                 time.sleep(random.randint(0, 59))
                         break
-                time.sleep(59)
+                time.sleep(random.randint(0,time_between_wallets))
             print(t.magenta("================== Finished swapping for this wallet =================="))
 
 
