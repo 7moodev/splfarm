@@ -5,17 +5,17 @@ import json
 from blessings import Terminal
 from datetime import datetime, timezone
 import random
-from log import log_rd
+from log import log_rd, log_bal, log_fl
 t = Terminal()
-
+import sys
 with open('../constants.json', 'r') as file:
         tokens = (list((json.load(file)["tokens"]).keys()))
         tokens.remove("SOL")
         
 rounds = 10 # rounds of swapping all tickers among all wallets once
 time_between_rounds = 20*60 # est time to wait between each round, in seconds
-time_between_swaps = 60 # est time to wait between each swap, in seconds
-time_between_wallets = 60 # est time to wait between each wallet, in seconds
+time_between_swaps = 60*2 # est time to wait between each swap, in seconds
+time_between_wallets = 10 # est time to wait between each wallet, in seconds
 def main():
     """
     A naive farming bot that does random swaps on wallets on verified tickers. It is not inteded to be profitable.
@@ -46,22 +46,24 @@ def main():
     wallet9 = Wallet(9)
     wallet10 = Wallet(10)
     wallets = [wallet0, wallet1, wallet2, wallet3, wallet4, wallet5, wallet6, wallet7, wallet8, wallet9, wallet10]
-    total_vol = 5
+    total_vol = 0 #vol in usd
+    swaps = 0
+    print(t.bold(t.green(f"Total SOL among all wallets: {get_sol_balances(wallets)}")))
+    #print(t.bold(t.green(f"Total balance among all wallets: {get_all_balances(wallets)}")))
     while True:
         if rounds == 0:
             break
         rounds -= 1
         start = datetime.now(timezone.utc).isoformat()
-        print(t.bold(t.red("================== Swapping Started ==================")))
-       
-        print(t.bold(t.black(f"Pre Balances among all wallets: {get_all_balances(wallets)}")))
+        print(t.bold(t.red("================== Swapping Started ================")))
         slow_alternating_swaps(wallets)
         for wallet in wallets:
-              total_vol +=wallet.volume
-        swaps = wallet.swaps +5
+            total_vol +=wallet.volume
+            swaps += wallet.swaps 
         log_rd(start,swaps,total_vol)
         print(t.bold(t.green(f"Total volume traded among all wallets: {total_vol}")))
-        print(t.bold(t.green(f"Post Balances among all wallets: {get_all_balances(wallets)}")))
+        print(t.bold(t.green(f"Available SOL among all wallets: {get_sol_balances(wallets)}")))
+        print(t.bold(t.green(f"Total balance among all wallets: {get_all_balances(wallets)}")))
         print(t.bold(t.red("================== Swapping Ended ==================")))
         time.sleep(random.randint(0,time_between_rounds))
 def slow_alternating_swaps(wallets):
@@ -77,23 +79,29 @@ def slow_alternating_swaps(wallets):
         global time_between_swaps
         global time_between_wallets
         random.shuffle(wallets) # for extra randomness
-        random_min = random.randint(0, 59)
+        random_sec = random.randint(0, 59)
         for wallet in wallets:
             print(t.bold(t.white("Queue entered for ")), end="")
             print(t.bold(t.white(f"Wallet {wallet.which_wallet}:")))
             random.shuffle(tokens)
+            sol_balance = wallet.get_balance()
             while True:
-                print(t.black("Planned Minute: "), end="")
-                print(t.bold(t.black(f"{random_min}")))
-                print(t.black("Current Minute: "), end="")
-                print(t.bold(t.black(f"{datetime.now().minute}")))
-                if wallet.get_balance()<0.2:
-                    if datetime.now().minute != random_min:
-                        random_min = random.randint(0,59)
+                output = (f"{t.black('Planned Second: ')}"
+                f"{t.bold(t.black(f'{random_sec}'))} "
+                f"{t.black('|| Current Second: ')}"
+                f"{t.bold(t.black(f'{datetime.now().second}'))}")
+
+                    # Print the output and overwrite it on the same line
+                sys.stdout.write(f'\r{output}\n')
+                sys.stdout.flush()
+                if datetime.now().second == random_sec:
+                    random_sec = random.randint(0,59)
+                    if sol_balance<0.2: 
+                        print(t.bold(t.white("Wallet balance is below 0.2 SOL. Emptying some tokens:")))
                         for token in tokens:
                             token_balance = wallet.get_balance(token)
                             if token_balance != 0:
-                                if random_min %10 == random.randint(0,9):
+                                if random_sec %10 == random.randint(0,9):
                                     print(t.bold(t.white("Changing Wallets")))
                                     break # this will ensure that not all tokens have to be processed before the next wallet is processed
                                 try: 
@@ -101,50 +109,84 @@ def slow_alternating_swaps(wallets):
                                     print(t.bold(t.yellow(token)), end="")
                                     print(t.yellow(" =======> SOL on wallet "), end="")
                                     print(t.bold(t.yellow(f"{wallet.which_wallet}")))
-                                    token_balance = wallet.get_balance(token)
-                                    wallet.swap_on_jupiter(token, "SOL", random.uniform(token_balance/2, token_balance))
+                                    if token == "MOODENG" or token == "WIF" or token == "POPCAT":
+                                         wallet.swap_on_jupiter(token, "SOL", token_balance, slippage=2)
+                                    wallet.swap_on_jupiter(token, "SOL", token_balance)
                                 except Exception as e:
+                                    log_fl(str(e))
                                     print(t.red("Swap Failed"))
                                     continue
-                            time.sleep(random.randint(0, time_between_swaps))
+                                time.sleep(random.randint(time_between_swaps/2, time_between_swaps))
                         break
-                else:
-                    if datetime.now().minute != random_min:
-                        random_min = random.randint(0,59)
+                    else:
                         for token in tokens:
-                                if random_min %10 == random.randint(0,9) or wallet.get_balance()<0.2:
-                                    print(t.bold(t.white("Changing Wallets")))
-                                    break # this will ensure that not all tokens have to be processed before the next wallet is processed
-                                if wallet.get_balance()< 0.2:
-                                    break
-                                try: 
-                                    print(t.yellow(f"Swapping SOL =======> "), end="")
-                                    print(t.bold(t.yellow(token)), end="")
-                                    print(t.yellow(f" on wallet "), end="")
-                                    print(t.bold(t.yellow(f"{wallet.which_wallet}")))
-                                    wallet.swap_on_jupiter("SOL", token, random.uniform(wallet.get_balance()/4, wallet.get_balance()/1.5))
-                                except Exception as e:
-                                    print(t.red("Swap Failed"))
-                                    continue
-                                time.sleep(random.randint(0, 59))
+                            if random_sec %10 == random.randint(0,9) or wallet.get_balance()<0.2:
+                                print(t.bold(t.white("Changing Wallets")))
+                                break # this will ensure that not all tokens have to be processed before the next wallet is processed
+                            try: 
+                                print(t.yellow(f"Swapping SOL =======> "), end="")
+                                print(t.bold(t.yellow(token)), end="")
+                                print(t.yellow(f" on wallet "), end="")
+                                print(t.bold(t.yellow(f"{wallet.which_wallet}")))
+                                wallet.swap_on_jupiter("SOL", token, random.uniform(wallet.get_balance()/5, wallet.get_balance()/2))
+                                
+                            except Exception as e:
+                                log_fl(str(e))
+                                print(t.red("Swap Failed"))
+                                continue
+                            time.sleep(random.randint(time_between_swaps/2, time_between_swaps))
                         break
-                time.sleep(random.randint(0,time_between_wallets))
+                time.sleep(random.randint(1,1))
+            time.sleep(random.randint(0,time_between_wallets))
             print(t.magenta("================== Finished swapping for this wallet =================="))
 
-
 def get_all_balances(wallets):
+    total = 0
+    listy = []
+    for wallet in wallets:
+        try:
+            balance = wallet.get_all_balances()
+            tuple_balance = (wallet.address, balance)
+            listy.append(tuple_balance)
+            total += balance
+        except Exception as e:
+            time.sleep(5)
+            continue
+    log_bal(datetime.now(timezone.utc).isoformat(), listy, total)
+    return total
+    
+def get_sol_balances(wallets):
     balance = 0
     for wallet in wallets:
-        balance += wallet.get_balance()
+        try:
+            balance += wallet.get_balance()
+        except Exception as e:
+            time.sleep(3)
+            continue
     return balance
 def swap_all_to_sol(wallets):
     for wallet in wallets:
         for token in tokens:
-            try:
-                wallet.swap_on_jupiter(token, "USDC", wallet.get_balance(token))
-            except Exception as e:
-                print(t.red("Swap Failed"))
-                continue
+            balance = wallet.get_balance(token)
+            if balance != 0:
+                try:
+                    wallet.swap_on_jupiter(token, "SOL", balance)
+                except Exception as e:
+                    print(t.red("Swap Failed"))
+                    continue
 
 if __name__ == "__main__":
-     main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(t.bold(t.blue("======================================== Engine Stopped ========================================")))
+        sys.exit(0)
+
+
+
+
+
+
+## fix logging of everything
+## fix swap failed
+#adjust trades size
