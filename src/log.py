@@ -183,3 +183,52 @@ def log_rd(starttime:str,swaps:int, volume:float, csv_file='../log/rounds.csv'):
         
         # Write the new log entry
         writer.writerow(log_entry)
+
+
+
+import csv
+import os
+from datetime import datetime, timezone
+
+def log_bal(starttime: str, 
+                        wallets: list[tuple[str, float]], 
+                        total_sum: float, 
+                        csv_file='../log/balances.csv'):
+    """
+    Logs the wallet addresses and their values, along with a sum, into a CSV file.
+    
+    Parameters:
+        starttime (str): The timestamp when the log entry starts.
+        wallets (list of tuples): Each tuple contains a wallet address (str) and its value (float).
+        total_sum (float): The sum of all wallet values.
+        csv_file (str): The path to the CSV file.
+    """
+    
+    # Get the current timestamp
+    endtime = datetime.now(timezone.utc).isoformat()
+    
+    # Prepare the log entry
+    log_entry = {
+        "timestamp": endtime
+    }
+    
+    # Add each wallet's address and value to the log entry
+    for wallet_address, wallet_value in wallets:
+        log_entry[wallet_address] = wallet_value
+    
+    # Add the sum of all wallet values
+    log_entry["sum"] = total_sum
+    
+    # Check if the CSV file exists and write the log entry
+    file_exists = os.path.isfile(csv_file)
+    with open(csv_file, mode='a', newline='') as f:
+        # Dynamically create fieldnames based on the number of wallets
+        fieldnames = ['timestamp'] + [wallet_address for wallet_address, _ in wallets] + ['sum']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        
+        # Write the header only if the file is being created for the first time
+        if not file_exists:
+            writer.writeheader()
+        
+        # Write the new log entry
+        writer.writerow(log_entry)

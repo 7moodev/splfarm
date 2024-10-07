@@ -35,11 +35,26 @@ class Wallet:
                              onlyDirectRoutes=False):
         qoute, out_amount, price_impact, slippage, in_amount_usd, out_amount_usd, delta_in_out_usd =utils.get_quote(self.tokens[input], self.tokens[output], amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
         return qoute, out_amount, price_impact, slice, in_amount_usd, out_amount_usd, delta_in_out_usd
-    def swap_on_jupiter(self, input: str, output: str, amount: int=None, slippage=0.5, 
+    def swap_on_jupiter(self, input: str, output: str, amount: int=None, slippage=1, 
                              exactIn=True, include_dexes=[],
                              onlyDirectRoutes=False):
         link, in_amount_usd,*_ =utils.swap(self.keypair, self.tokens[input], self.tokens[output], amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
         self.volume += in_amount_usd
         self.swaps += 1
+    def get_all_balances(self):
+        total = self.get_balance()
+        tokens = list(self.tokens.keys())
+        tokens.remove("SOL")    
+        for token in tokens:
+                if self.get_balance(token) > 0:
+                    total += utils._get_quote_simple(self.tokens[token], self.tokens["SOL"], self.get_balance(token))
+                else:
+                    continue
+        return total
         
+
+    ## to do's:
+    # 1. get_all_balances
+    # fix erorrs, and integrate all balances to main.py for ease of use
+    
     
