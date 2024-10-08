@@ -16,6 +16,8 @@ from log import log_tx, log_qt, log_fl #used for logging and storing transaction
 import json
 
 t = Terminal()
+with open('../constants.json', 'r') as file:
+        tokens = (json.load(file)["tokens"])
 solana_url = os.environ.get("solrpc")
 def get_balance(wallet_address, token_address=None):
     headers = {
@@ -248,7 +250,7 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
                                     "asLegacyTransaction": True,
                                     "useTokenLedger": False,
                                     "destinationTokenAccount": None,
-                                    "dynamicComputeUnitLimit": True,
+                                    "dynamicComputeUnitLimit": False,
                                    }
     #we'll consider the fees paid
     feeMint = qoute["routePlan"][0]["swapInfo"]["feeMint"]
@@ -281,7 +283,7 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
         try: 
             result =client.send_transaction(tx, keypair, opts=opts, recent_blockhash=client.get_latest_blockhash().value.blockhash)
         except Exception as e:
-            log_fl(str(e))
+            log_fl(str(input + " || "+ output + " || "+ amount +" || "+ response.json()),str(e))
             print(t.bold(t.red(f"Transaction Failed")))
             print(t.cyan("Trying again..."))
             if max_tries > 0:

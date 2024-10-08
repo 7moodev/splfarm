@@ -102,13 +102,14 @@ def log_qt(jupiter_quote: str, json_file='../log/qoutes.json'):
 
 
 
-def log_fl(failed: str, json_file='../log/failed.json'):
+def log_fl(info:str , failed: str, json_file='../log/failed.json'):
     ensure_log_folder_exists()
     # Get the current timestamp
     timestamp = datetime.now(timezone.utc).isoformat()
     # Create a dictionary with the timestamp and the raw JSON string
     transaction = {
         "timestamp": timestamp,
+        'info': info,
         "failure": failed  # Save the entire quote string as-is
     }
     # Append to JSON file

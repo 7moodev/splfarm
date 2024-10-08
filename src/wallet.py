@@ -2,11 +2,13 @@ import os
 from solders import message
 from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
-from solders.keypair import Keypair
-from solana.rpc.async_api import AsyncClient
+
+
 from solana.rpc.types import TxOpts
 from solana.rpc.commitment import Processed
+from solana.transaction import Transaction
 import base58
+from solders.keypair import Keypair
 import utils #where most functions are implemented
 import json
 
@@ -15,7 +17,6 @@ class Wallet:
     jup_url = "https://quote-api.jup.ag/v6"
     def __init__(self, which_wallet: int=0):    
         self.which_wallet = which_wallet    
-        self.client = AsyncClient(Wallet.url)
         self.private_key = os.environ.get(f"spl{which_wallet}")
         if not self.private_key:
             raise Exception(f"Environment variable spl{which_wallet} not set.")

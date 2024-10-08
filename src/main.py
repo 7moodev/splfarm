@@ -94,7 +94,7 @@ def slow_alternating_swaps(wallets):
                     # Print the output and overwrite it on the same line
                 sys.stdout.write(f'\r{output}\n')
                 sys.stdout.flush()
-                if datetime.now().second == random_sec:
+                if datetime.now().second != random_sec:
                     random_sec = random.randint(0,59)
                     if sol_balance<0.2: 
                         print(t.bold(t.white("Wallet balance is below 0.2 SOL. Emptying some tokens:")))
@@ -109,18 +109,19 @@ def slow_alternating_swaps(wallets):
                                     print(t.bold(t.yellow(token)), end="")
                                     print(t.yellow(" =======> SOL on wallet "), end="")
                                     print(t.bold(t.yellow(f"{wallet.which_wallet}")))
-                                    if token == "MOODENG" or token == "WIF" or token == "POPCAT":
-                                         wallet.swap_on_jupiter(token, "SOL", token_balance, slippage=2)
-                                    wallet.swap_on_jupiter(token, "SOL", token_balance)
+                                    wallet.swap_on_jupiter(token, "SOL", random.choice([token_balance, token_balance/2, token_balance/3]), 1)
                                 except Exception as e:
-                                    log_fl(str(e))
+                                    log_fl(token + " || "+ "SOL" + " || "+ token_balance ,str(e))
                                     print(t.red("Swap Failed"))
                                     continue
-                                time.sleep(random.randint(time_between_swaps/2, time_between_swaps))
+                                waiting = random.randint(time_between_swaps/2, time_between_swaps)
+                                print(t.black(f"Waiting for {waiting} seconds"))
+                                time.sleep(waiting)
                         break
                     else:
                         for token in tokens:
-                            if random_sec %10 == random.randint(0,9) or wallet.get_balance()<0.2:
+                            sol_balance = wallet.get_balance(token)
+                            if random_sec %10 == random.randint(0,9) or sol_balance<0.2:
                                 print(t.bold(t.white("Changing Wallets")))
                                 break # this will ensure that not all tokens have to be processed before the next wallet is processed
                             try: 
@@ -128,16 +129,22 @@ def slow_alternating_swaps(wallets):
                                 print(t.bold(t.yellow(token)), end="")
                                 print(t.yellow(f" on wallet "), end="")
                                 print(t.bold(t.yellow(f"{wallet.which_wallet}")))
-                                wallet.swap_on_jupiter("SOL", token, random.uniform(wallet.get_balance()/5, wallet.get_balance()/2))
+                                wallet.swap_on_jupiter("SOL", token, random.uniform(sol_balance/5, sol_balance/2))
                                 
                             except Exception as e:
-                                log_fl(str(e))
+                                log_fl(token + " || "+ "SOL" + " || "+ sol_balance,str(e))
                                 print(t.red("Swap Failed"))
                                 continue
-                            time.sleep(random.randint(time_between_swaps/2, time_between_swaps))
+                            waiting = random.randint(time_between_swaps/2, time_between_swaps)
+                            print(t.black(f"Waiting for {waiting} seconds"))
+                            time.sleep(waiting)
                         break
-                time.sleep(random.randint(1,1))
-            time.sleep(random.randint(0,time_between_wallets))
+                waiting = random.randint(1,1)
+                print(t.black(f"Waiting for {waiting} seconds"))
+                time.sleep(waiting)
+            waiting = random.randint(0,time_between_wallets)
+            print(t.black(f"Waiting for {waiting} seconds"))
+            time.sleep(waiting)
             print(t.magenta("================== Finished swapping for this wallet =================="))
 
 def get_all_balances(wallets):
