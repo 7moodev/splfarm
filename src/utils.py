@@ -2,17 +2,18 @@
 import os
 import requests
 import json
-from solders import message
 from blessings import Terminal
 from solders.keypair import Keypair
 from solana.rpc.api import Client
 from solders.transaction import VersionedTransaction
 from solana.rpc.commitment import Processed, Finalized, Confirmed
+from solana.transaction import Transaction
+#import solders.compute_budget
 import base58
 import base64
 from solana.rpc.types import TxOpts
-from log import log_tx, log_qt, log_fl#used for logging and storing transaction history
-
+from log import log_tx, log_qt, log_fl #used for logging and storing transaction history
+import json
 
 t = Terminal()
 solana_url = os.environ.get("solrpc")
@@ -28,7 +29,7 @@ def get_balance(wallet_address, token_address=None):
             "method": "getBalance",
             "params": [wallet_address]
         }
-        response = requests.post(solana_url, json=payload, headers=headers)
+        response = requests.post("https://api.mainnet-beta.solana.com", json=payload, headers=headers)
         if response.status_code == 200:
             balance_data = response.json()
             if "result" in balance_data:
@@ -81,7 +82,7 @@ def get_token_decimals(mint_address):
     headers = {
         "Content-Type": "application/json"
     }
-    response = requests.post(solana_url, json=payload, headers=headers)
+    response = requests.post("https://api.mainnet-beta.solana.com", json=payload, headers=headers)
     if response.status_code == 200:
         supply_data = response.json()
         if "result" in supply_data and "value" in supply_data["result"]:
@@ -101,7 +102,23 @@ def find_ticker(address):
         if token_address == address:
             return ticker
     return None
+def _get_quote_simple(input:str, output:str, amount):
+        amount = int(amount * (10**get_token_decimals(input)))
+        url = f"https://quote-api.jup.ag/v6/quote?inputMint={input}&outputMint={output}&amount={amount}"
+        payload = {}
+        headers = {
+        'Accept': 'application/json'
+        }
 
+        response = requests.get(url, headers=headers, data=payload)
+        if response.status_code == 200:
+                # Parse the JSON directly from the response object
+                data = response.json()
+                # Extracting key values
+                out_amount = int(data["outAmount"])/10**get_token_decimals(output)
+                return out_amount
+        else:
+            raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
 def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
             exactIn:bool=True, include_dexes:list=[],
             onlyDirectRoutes:bool=False):
@@ -166,24 +183,6 @@ def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
                     'timeTaken': 0.031721628
                 }
         """
- 
-    def _get_quote_simple(input:str, output:str, amount):
-        amount = int(amount * (10**get_token_decimals(input)))
-        url = f"https://quote-api.jup.ag/v6/quote?inputMint={input}&outputMint={output}&amount={amount}"
-        payload = {}
-        headers = {
-        'Accept': 'application/json'
-        }
-
-        response = requests.get(url, headers=headers, data=payload)
-        if response.status_code == 200:
-                # Parse the JSON directly from the response object
-                data = response.json()
-                # Extracting key values
-                out_amount = int(data["outAmount"])/10**get_token_decimals(output)
-                return out_amount
-        else:
-            raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
 
     slippage = int(slippage * 100)
     in_amount_usd = (amount if input == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" else _get_quote_simple(
@@ -191,7 +190,7 @@ def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
     )
     amount = int(amount * (10**get_token_decimals(input)))
     exactIn = "ExactIn" if exactIn else"ExactOut"
-    url = f"https://quote-api.jup.ag/v6/quote?inputMint={input}&outputMint={output}&amount={amount}&swapMode={exactIn}&onlyDirectRoutes{onlyDirectRoutes}"
+    url = f"https://quote-api.jup.ag/v6/quote?inputMint={input}&outputMint={output}&amount={amount}&swapMode={exactIn}&onlyDirectRoutes{onlyDirectRoutes}&asLegacyTransaction=true&slippageBps={slippage}"
     payload = {}
     headers = {
     'Accept': 'application/json'
@@ -210,7 +209,7 @@ def get_quote(input:str, output:str, amount:float, slippage:float=0.5,
         raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
 def swap(keypair: Keypair, input:str, output:str, amount:float=None,
           slippage:int=0.5, exactIn:bool=True,
-            include_dexes:list=[], onlyDirectRoutes:bool=False, max_tries: int=3):
+            include_dexes:list=[], onlyDirectRoutes:bool=False, max_tries: int=1):
     
     if input == output:
         raise ValueError(t.red(t.bold("Input and output tokens must be different.")))
@@ -234,22 +233,6 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
             elif amount> get_balance(str(keypair.pubkey()), input):
                 raise ValueError(t.bold(t.red("Insufficient balance to perform the swap.")))
     
-    def _get_quote_simple(input:str, output:str, amount):
-        amount = int(amount * (10**get_token_decimals(input)))
-        url = f"https://quote-api.jup.ag/v6/quote?inputMint={input}&outputMint={output}&amount={amount}"
-        payload = {}
-        headers = {
-        'Accept': 'application/json'
-        }
-        response = requests.get(url, headers=headers, data=payload)
-        if response.status_code == 200:
-                # Parse the JSON directly from the response object
-                data = response.json()
-                # Extracting key values
-                out_amount = int(data["outAmount"])/10**get_token_decimals(output)
-                return out_amount
-        else:
-            raise ConnectionError(f"Failed to connect to Jupiter API. Status code: {response.status_code}")
     url = "https://quote-api.jup.ag/v6/swap"
     client = Client(solana_url)
     pubkey = str(keypair.pubkey())
@@ -262,9 +245,10 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
                                     "feeAccount": None,
                                     "trackingAccount": None,
                                     "computeUnitPriceMicroLamports": None,
-                                    "asLegacyTransaction": False,
+                                    "asLegacyTransaction": True,
                                     "useTokenLedger": False,
                                     "destinationTokenAccount": None,
+                                    "dynamicComputeUnitLimit": True,
                                    }
     #we'll consider the fees paid
     feeMint = qoute["routePlan"][0]["swapInfo"]["feeMint"]
@@ -285,15 +269,19 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
     response = requests.post(url, json=payload)
     print(t.yellow("Preparing Transaction..."))
     if response.ok:
-        tx = response.json()["swapTransaction"]
-        raw_transaction = VersionedTransaction.from_bytes(base64.b64decode(tx))
-        signature = keypair.sign_message(message.to_bytes_versioned(raw_transaction.message))
-        signed_txn = VersionedTransaction.populate(raw_transaction.message, [signature])
-        opts = TxOpts(skip_preflight=False, preflight_commitment=Processed)
+        json_tx = response.json()["swapTransaction"]
+        tx = Transaction.deserialize(base64.b64decode(json_tx))
+        fee_lamports = client.get_fee_for_message(tx.compile_message()).value / 10**9
+        compUnitLimit = response.json()["computeUnitLimit"] 
+        prioLamports = response.json()["prioritizationType"]["computeBudget"]["microLamports"] / 10**6
+        prio_fee = (compUnitLimit * prioLamports) / 10**9
+        chain_fee = fee_lamports+prio_fee
+        feesSOL += chain_fee
+        opts = TxOpts(skip_preflight=False, preflight_commitment=Confirmed)
         try: 
-            result = client.send_raw_transaction(txn=bytes(signed_txn), opts=opts)
+            result =client.send_transaction(tx, keypair, opts=opts, recent_blockhash=client.get_latest_blockhash().value.blockhash)
         except Exception as e:
-            log_fl(e)
+            log_fl(str(e))
             print(t.bold(t.red(f"Transaction Failed")))
             print(t.cyan("Trying again..."))
             if max_tries > 0:
@@ -302,6 +290,7 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
                 print(t.bold(t.red("Max tries reached. Transaction failed")))
                 return
             return
+        feeUSDC+=(_get_quote_simple(tokens["SOL"], tokens["USDC"], chain_fee))
         transaction_id = json.loads(result.to_json())['result']
         link = f"https://solscan.io/tx/{transaction_id}"
         print(t.green("Swapped "), end="")
@@ -346,14 +335,14 @@ def swap(keypair: Keypair, input:str, output:str, amount:float=None,
 #         response.raise_for_status()
 #         transaction_data = response.json()['data']
 
-# if __name__ == "__main__":
-#     with open('../constants.json', 'r') as file:
-#         tokens = (json.load(file)["tokens"])
-#     private_key = os.environ.get(f"spl{0}")
-#     if not private_key:
-#             raise Exception(f"Environment variable spl{0} not set.")
-#     keypair = Keypair.from_bytes(base58.b58decode(private_key))
-#     swap(keypair, tokens["SOL"], tokens["USDC"], 0.03)
+if __name__ == "__main__":
+    with open('../constants.json', 'r') as file:
+        tokens = (json.load(file)["tokens"])
+    private_key = os.environ.get(f"spl{0}")
+    if not private_key:
+            raise Exception(f"Environment variable spl{0} not set.")
+    keypair = Keypair.from_bytes(base58.b58decode(private_key))
+    swap(keypair, tokens["USDC"], tokens["SOL"], 4)
 
 
 
