@@ -1,15 +1,9 @@
 import os
-from solders import message
 from solders.pubkey import Pubkey
-from solders.transaction import VersionedTransaction
-
-
 from solana.rpc.types import TxOpts
-from solana.rpc.commitment import Processed
-from solana.transaction import Transaction
 import base58
 from solders.keypair import Keypair
-import utils #where most functions are implemented
+from utils import Utils #where most functions are implemented
 import json
 
 class Wallet:
@@ -24,34 +18,51 @@ class Wallet:
         self.address = self.keypair.pubkey()
         self.volume = 0
         self.swaps = 0
+        self.open_limits = 0
+        self.utils = Utils()
         with open('../constants.json', 'r') as file:
             self.tokens = (json.load(file)["tokens"])
-    def get_balance(self, ticker=None):
-        if ticker is None:
-            return utils.get_balance(str(self.address))
+    def get_balance(self, address=None):
+        if address is None:
+            return self.utils.get_balance(str(self.address))
         else:
-            return utils.get_balance(str(self.address), self.tokens[ticker])
+            return self.utils.get_balance(str(self.address), address)
     def get_qoute_on_jupiter(self, input: str, output: str, amount: int, slippage=0.5, 
                              exactIn=True, include_dexes=[],
                              onlyDirectRoutes=False):
-        qoute, out_amount, price_impact, slippage, in_amount_usd, out_amount_usd, delta_in_out_usd =utils.get_quote(self.tokens[input], self.tokens[output], amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
+        qoute, out_amount, price_impact, slippage, in_amount_usd, out_amount_usd, delta_in_out_usd =self.utils.get_quote(input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
         return qoute, out_amount, price_impact, slice, in_amount_usd, out_amount_usd, delta_in_out_usd
     def swap_on_jupiter(self, input: str, output: str, amount: int=None, slippage=1, 
                              exactIn=True, include_dexes=[],
                              onlyDirectRoutes=False):
-        link, in_amount_usd,*_ =utils.swap(self.keypair, self.tokens[input], self.tokens[output], amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
+        link, in_amount_usd,*_ =self.utils.swap_on_jupiter(self.keypair, input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes)
         self.volume += in_amount_usd
         self.swaps += 1
+    def swap_on_jupiter_safe(self, input: str, output: str, amount: int=None, slippage=1,
+                             exactIn=True, include_dexes=[],
+                             onlyDirectRoutes=False):
+        link, in_amount_usd,*_ =self.utils.swap_on_jupiter(self.keypair, input, output, amount, slippage, exactIn, include_dexes, onlyDirectRoutes, True)
+        self.volume += in_amount_usd
+        self.swaps += 1
+    def get_simple_quote(self, input: str, output: str, amount: int):
+        return self.utils.get_simple_quote(input, output, amount)
+        
     def get_all_balances(self):
+        
         total = self.get_balance()
-        tokens = list(self.tokens.keys())
-        tokens.remove("SOL")    
+        tokens = list(self.tokens) 
+        tokens.pop(0)   
         for token in tokens:
+                token = token["address"]
                 if self.get_balance(token) > 0:
-                    total += utils._get_quote_simple(self.tokens[token], self.tokens["SOL"], self.get_balance(token))
+                    total += self.utils.get_simple_quote(token, self.tokens[0]["address"], self.get_balance(token))
                 else:
                     continue
         return total
+    def limit_on_jupiter(self, input:str, output:str, price:float, amount:int, expireAt = None):
+        link, value_usd = self.utils.limit_on_jupiter(self.keypair, self.tokens[input], self.tokens[output], price, amount, expireAt)
+        self.volume += value_usd
+        self.open_limits +=1
         
 
     ## to do's:

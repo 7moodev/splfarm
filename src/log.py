@@ -233,3 +233,50 @@ def log_bal(starttime: str,
         
         # Write the new log entry
         writer.writerow(log_entry)
+def log_lim(wallet: str, input_token: str,
+                        output_token: str, in_amount: int,
+                        out_amount: int, feeUSD: float,
+                        feeSOL: float,
+                        valueUSD: int, 
+                        explorer: str, 
+                        json_file='../log/txs_limit.json', csv_file='../log/txs_limit.csv'):
+    ensure_log_folder_exists()
+    # Prepare the transaction data
+    timestamp = datetime.now(timezone.utc).isoformat()
+    transaction = {
+       
+        "wallet_name": wallet,
+        "input": input_token,
+        "output": output_token,
+        "in": in_amount,
+        "out": out_amount,
+        "fees $": feeUSD,
+        "fees SOL": feeSOL,
+        "value $": valueUSD,
+        "explorer": explorer,
+        "timestamp": timestamp,
+    }
+    # Append to JSON file
+    try:
+        # Load existing transactions or initialize an empty list
+        with open(json_file, 'r') as f:
+            transactions = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        transactions = []
+
+    # Append new transaction
+    transactions.append(transaction)
+
+    # Save the updated transaction log back to JSON
+    with open(json_file, 'w') as f:
+        json.dump(transactions, f, indent=4)
+
+    # Append to CSV file
+    with open(csv_file, 'a', newline='') as f:
+        writer = csv.writer(f)
+        
+        # If the file is empty, write the header first
+        if f.tell() == 0:
+            writer.writerow(["wallet_name", "input", "output","in", "out", "fees $", "fees SOL", "value $","explorer", "timestamp"])
+        
+        writer.writerow([wallet, input_token, output_token, in_amount, out_amount,feeUSD,feeSOL,valueUSD, explorer, timestamp])
